@@ -1,1 +1,10 @@
+# Pthon venv
 venv
+
+# contracts
+contracts/__pycache__
+contracts/.env
+contracts/.history
+contracts/.hypothesis/
+contracts/build/
+contracts/reports/
