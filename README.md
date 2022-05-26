@@ -21,8 +21,8 @@ It is a simple Defi App.
 
 ## Roadmap
 
-- [ ] Add [Aave Interface](https://github.com/aave/interface)
-- [ ] Add contracts for test Erc20 coins.
+- [x] Add [Aave Interface](https://github.com/aave/interface)
+- [x] Add contracts for test Erc20 coins.
 - [ ] Add contracts and UI for token swapping.
 - [ ] Add security scanners for contracts.
 - [ ] Add contracts and UI for staking.
