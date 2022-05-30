@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TokenFarm is ChainlinkClient, Ownable {
     string public name = "Phoenix Token Farm";
-    IERC20 public dappToken;
+    IERC20 public phoenixToken;
 
     struct Stake {
         address user;
@@ -48,8 +48,8 @@ contract TokenFarm is ChainlinkClient, Ownable {
         _;
     }
 
-    constructor(address _dappTokenAddress) {
-        dappToken = IERC20(_dappTokenAddress);
+    constructor(address _phoenixTokenAddress) {
+        phoenixToken = IERC20(_phoenixTokenAddress);
         stakeholders.push();
     }
 
@@ -100,10 +100,10 @@ contract TokenFarm is ChainlinkClient, Ownable {
             stakeholderAdressToIndexMap[msg.sender]
         ];
         if (index != 0) {
-            // @TODO this can have reentrancy attack
             _unstake(_token, stakeholder.stake_addresses[index]);
+            // @TODO It will still be called in case of failed unstake
             removeStakeByIndex(stakeholder.stake_addresses, index);
-        } 
+        }
         // else {
         //     // @TODO: for now return 0
         //     // run a loop
@@ -112,12 +112,13 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
     function _unstake(address _token, Stake storage stakeElement) internal {
         require(stakeElement.amount > 0, "Staking balance cannot be 0");
-        stakeElement.claimable = calculateStakeReward(
+        uint256 _claimable = stakeElement.amount + calculateStakeReward(
             stakeElement.amount,
             stakeElement.since,
             stakeElement.token
         );
-        IERC20(_token).transfer(stakeElement.user, stakeElement.amount + stakeElement.claimable);
+        stakeElement.amount = 0; // To Prevent Reentrancy attack
+        IERC20(_token).transfer(stakeElement.user, _claimable);
     }
 
     function removeStakeByIndex(Stake[] storage stake_addresses, uint256 index)
@@ -147,6 +148,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
         return userIndex;
     }
 
+    // @TODO: change spelling
     function getStacker(uint256 index, uint256 stackIndex)
         public
         view
@@ -168,7 +170,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
         );
     }
 
-    function addToListedToken(address token) external onlyOwner {
+    function addToAllowedTokens(address token) external onlyOwner {
         allowedTokens[token] = true;
     }
 
@@ -216,4 +218,13 @@ contract TokenFarm is ChainlinkClient, Ownable {
         return (uint256(price), priceFeed.decimals());
     }
 
+    // @TODO make this owner and user visible
+    function getUserTotalValue(address user) public view returns (uint256 value) {
+        require(owner() == msg.sender || user == msg.sender, "Only User of owner can see this value");
+        uint256 totalValue = 0;
+        Stake[] storage stakes = stakeholders[stakeholderAdressToIndexMap[user]].stake_addresses;
+        for (uint i; i < stakes.length; i++) {
+            totalValue += stakes[i].amount;
+        }
+    }
 }

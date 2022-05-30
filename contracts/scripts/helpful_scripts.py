@@ -4,6 +4,8 @@ from brownie import (
     config,
     Contract,
     MockV3Aggregator,
+    MockDAI,
+    MockWETH,
 )
 
 LOCAL_BLOCKCHAIN_ENVIRONMENTS = ["hardhat", "development", "ganache", "ganache-local"]
@@ -13,8 +15,8 @@ DECIMALS = 18
 contract_to_mock = {
     "eth_usd_price_feed": MockV3Aggregator,
     "dai_usd_price_feed": MockV3Aggregator,
-    # "fau_token": MockDAI,
-    # "weth_token": MockWETH,
+    "fau_token": MockDAI,
+    "weth_token": MockWETH,
 }
 
 def get_account(index=None, id=None):
@@ -46,6 +48,7 @@ def get_contract(contract_name):
             a mock or the 'real' contract on a live network.
     """
     contract_type = contract_to_mock[contract_name]
+    print('contract_type', contract_type)
     if network.show_active() in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         if len(contract_type) <= 0:
             deploy_mocks()
@@ -79,10 +82,10 @@ def deploy_mocks(decimals=DECIMALS, initial_value=INITIAL_PRICE_FEED_VALUE):
         decimals, initial_value, {"from": account}
     )
     print(f"Deployed to {mock_price_feed.address}")
-    # print("Deploying Mock DAI...")
-    # mock_dai = MockDAI.deploy({"from": account})
-    # print(f"Deployed to {mock_dai.address}")
-    # print("Deploying Mock WETH...")
-    # mock_weth = MockWETH.deploy({"from": account})
-    # print(f"Deployed to {mock_weth.address}")
+    print("Deploying Mock DAI...")
+    mock_dai = MockDAI.deploy({"from": account})
+    print(f"Deployed to {mock_dai.address}")
+    print("Deploying Mock WETH...")
+    mock_weth = MockWETH.deploy({"from": account})
+    print(f"Deployed to {mock_weth.address}")
     print("Mocks Deployed!")
