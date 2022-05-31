@@ -6,12 +6,9 @@ from scripts.helpful_scripts import (
     get_account,
     get_contract,
 )
-from brownie import network, exceptions
+from brownie import network, exceptions, chain
 import pytest
 from web3 import Web3
-
-# needs testing
-# test isTokenAllowed modifier in staking function
 
 
 def test_add_allowed_tokens():
@@ -49,35 +46,38 @@ def test_set_price_feed_contract():
         )
 
 
-def test_stake_tokens(amount_staked=100):
+def test_stake_tokens(amount_staked=KEPT_BALANCE, index=1):
     # Arrange
     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         pytest.skip("Only for local testing")
-    account = get_account()
+    owner = get_account()
+    non_owner = get_account(index)
     token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
+    phoenix_token.mint(non_owner, amount_staked, {"from": owner })
+    assert phoenix_token.balanceOf(non_owner) == amount_staked
     # Act
-    phoenix_token.approve(token_farm.address, amount_staked, {"from": account})
-    tx = token_farm.stake(phoenix_token.address, amount_staked, {"from": account})
-    
+    phoenix_token.approve(token_farm.address, amount_staked, {"from": non_owner})
+    tx = token_farm.stake(phoenix_token.address, amount_staked, {"from": non_owner})
+    userIndex = token_farm.stakeholderAdressToIndexMap(non_owner.address)
     (
         user,
         amount,
         since,
         claimable
-    ) = token_farm.getStacker(
-        token_farm.stakeholderAdressToIndexMap(account.address),
+    ) = token_farm.getStaker(
+        userIndex,
         1
     )
 
     assert amount == amount_staked
-    assert user == account.address
+    assert user == non_owner.address
     assert since == tx.timestamp
     assert claimable == 0
 
     return token_farm, phoenix_token
 
 
-def test_stake_unapproved_tokens(random_erc20 = None, amount_staked=100):
+def test_stake_unapproved_tokens(random_erc20 = None, amount_staked=KEPT_BALANCE):
     if random_erc20 is None:
         random_erc20 = get_contract("fau_token")
     # Arrange
@@ -92,96 +92,119 @@ def test_stake_unapproved_tokens(random_erc20 = None, amount_staked=100):
         token_farm.stake(random_erc20.address, amount_staked, {"from": account})
 
 
-def test_unstake_tokens(amount_staked = 100):
+def test_unstake_tokens(amount_staked = KEPT_BALANCE):
     # Arrange
     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         pytest.skip("Only for local testing")
-    account = get_account()
-    token_farm, phoenix_token = test_stake_tokens(amount_staked)
+    non_owner = get_account(1)
+    token_farm, phoenix_token = test_stake_tokens(amount_staked, 1)
 
-    userIndex = token_farm.stakeholderAdressToIndexMap(account.address)
-    (user, amount, since, claimable) = token_farm.getStacker(userIndex, 1)
+    userIndex = token_farm.stakeholderAdressToIndexMap(non_owner.address)
+    (user, amount, since, claimable) = token_farm.getStaker(userIndex, 1)
     assert amount == amount_staked
 
     # Act
-    token_farm.unstake(phoenix_token.address, 1, {"from": account})
+    token_farm.unstake(phoenix_token.address, 1, {"from": non_owner})
     # Assert
-    assert phoenix_token.balanceOf(account.address) == KEPT_BALANCE
+    assert phoenix_token.balanceOf(non_owner.address) == KEPT_BALANCE
 
     with pytest.raises(exceptions.VirtualMachineError):
-        token_farm.getStacker(userIndex, 1)
+        token_farm.getStaker(userIndex, 1)
 
-# def test_get_user_total_balance_with_different_tokens_and_amounts(
-#     amount_staked = 1000, random_erc20 = None
-# ):
-#     if random_erc20 is None:
-#         random_erc20 = get_contract("fau_token")
+def test_get_user_total_balance_with_different_tokens_and_amounts(
+    amount_staked = KEPT_BALANCE, random_erc20 = None
+):
+    if random_erc20 is None:
+        random_erc20 = get_contract("fau_token")
 
-#     # Arrange
-#     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
-#         pytest.skip("Only for local testing")
-#     account = get_account()
-#     token_farm, phoenix_token = test_stake_tokens(amount_staked)
-#     # Act
-#     token_farm.addToAllowedTokens(random_erc20.address, {"from": account})
-#     # The random_erc20 is going to represent DAI
-#     # Since the other mocks auto deploy
-#     token_farm.setPriceFeedContract(
-#         random_erc20.address, get_contract("eth_usd_price_feed"), {"from": account}
-#     )
+    # Arrange
+    if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
+        pytest.skip("Only for local testing")
+    owner = get_account()
+    non_owner = get_account(1)
+    token_farm, phoenix_token = test_stake_tokens(amount_staked)
+    # Act
+    token_farm.addToAllowedTokens(random_erc20.address, {"from": owner})
+    # The random_erc20 is going to represent DAI
+    # Since the other mocks auto deploy
+    token_farm.setPriceFeedContract(
+        random_erc20.address, get_contract("eth_usd_price_feed"), {"from": owner}
+    )
     
-#     random_erc20_stake_amount = amount_staked * 2
-#     random_erc20.approve(
-#         token_farm.address, random_erc20_stake_amount, {"from": account}
-#     )
-#     token_farm.stake(
-#         random_erc20.address, random_erc20_stake_amount, {"from": account}
-#     )
-#     # Act
-#     total_eth_balance = token_farm.getUserTotalValue(account.address)
-#     assert total_eth_balance == INITIAL_PRICE_FEED_VALUE * 3
+    random_erc20_stake_amount = amount_staked * 2
+
+    # @TODO fix this, change mint to internal
+    random_erc20.mint(non_owner, random_erc20_stake_amount, {"from": owner})
+    
+    random_erc20.approve(
+        token_farm.address, random_erc20_stake_amount, {"from": non_owner}
+    )
+    token_farm.stake(
+        random_erc20.address, random_erc20_stake_amount, {"from": non_owner}
+    )
+
+    # Act
+    timestamp = chain.time();
+    chain.sleep(3600337) # it's 31.3 seconds
+    chain.mine(10)
+    
+    expectedAmountWithReward = ((amount_staked + 
+                                random_erc20_stake_amount + 
+                                token_farm.calculateStakeReward(amount_staked, timestamp, phoenix_token) + 
+                                token_farm.calculateStakeReward(random_erc20_stake_amount, timestamp, random_erc20)
+                                ) * INITIAL_PRICE_FEED_VALUE) / (10**DECIMALS)
+
+    total_eth_balance = token_farm.getUserStakingEthAmountValue(non_owner.address)
+    assert total_eth_balance == expectedAmountWithReward
     # Improve by adding different mock price feed default values
 
+def test_get_token_eth_price():
+    # Arrange
+    if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
+        pytest.skip("Only for local testing")
+    token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
+    # Act / Assert
+    assert token_farm.getTokenEthPrice(phoenix_token.address) == (
+        INITIAL_PRICE_FEED_VALUE,
+        DECIMALS,
+    )
 
-# def test_get_token_eth_price():
-#     # Arrange
-#     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
-#         pytest.skip("Only for local testing")
-#     token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
-#     # Act / Assert
-#     assert token_farm.getTokenEthPrice(phoenix_token.address) == (
-#         INITIAL_PRICE_FEED_VALUE,
-#         DECIMALS,
-#     )
-
-
-# def test_get_user_token_staking_balance_eth_value(amount_staked):
-#     # Arrange
-#     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
-#         pytest.skip("Only for local testing")
-#     account = get_account()
-#     token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
-#     # Act
-#     phoenix_token.approve(token_farm.address, amount_staked, {"from": account})
-#     token_farm.stakeTokens(amount_staked, phoenix_token.address, {"from": account})
-#     # Assert
-#     eth_balance_token = token_farm.getUserTokenStakingBalanceEthValue(
-#         account.address, phoenix_token.address
-#     )
-#     assert eth_balance_token == Web3.toWei(2000, "ether")
+def test_get_user_token_staking_balance_eth_value(amount_staked=KEPT_BALANCE):
+    # Arrange
+    if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
+        pytest.skip("Only for local testing")
+    owner = get_account()
+    non_owner = get_account(1)
+    token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
+    # Act
+    phoenix_token.mint(non_owner, amount_staked, {"from": owner})
+    phoenix_token.approve(token_farm.address, amount_staked, {"from": non_owner})
+    token_farm.stake(phoenix_token.address, amount_staked, {"from": non_owner})
+    # Assert
+    eth_balance_token = token_farm.getUserStakingEthAmountValue(non_owner.address)
+    assert eth_balance_token == (KEPT_BALANCE * INITIAL_PRICE_FEED_VALUE) / (10**DECIMALS)
 
 
-# def test_issue_tokens(amount_staked):
-#     # Arrange
-#     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
-#         pytest.skip("Only for local testing")
-#     account = get_account()
-#     token_farm, phoenix_token = test_stake_tokens(amount_staked)
-#     starting_balance = phoenix_token.balanceOf(account.address)
-#     # Act
-#     token_farm.issueTokens({"from": account})
-#     # Assert
-#     assert (
-#         phoenix_token.balanceOf(account.address)
-#         == starting_balance + INITIAL_PRICE_FEED_VALUE
-#     )
+def test_get_user_token_staking_balance_eth_value_roles(amount_staked=KEPT_BALANCE):
+    # Arrange
+    if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
+        pytest.skip("Only for local testing")
+    owner = get_account()
+    non_owner = get_account(1)
+    non_owner2 = get_account(2)
+    token_farm, phoenix_token = deploy_phoenix_token_and_token_farm()
+    # Act
+    phoenix_token.mint(non_owner, amount_staked, {"from": owner})
+    phoenix_token.approve(token_farm.address, amount_staked, {"from": non_owner})
+    token_farm.stake(phoenix_token.address, amount_staked, {"from": non_owner})
+
+    # Assert    
+    assert token_farm.getUserStakingEthAmountValue(non_owner.address, {"from": non_owner}) != 0
+    assert token_farm.getUserStakingEthAmountValue(non_owner.address, {"from": owner}) != 0
+
+    with pytest.raises(exceptions.VirtualMachineError):
+        token_farm.getUserStakingEthAmountValue(non_owner.address, {"from": non_owner2})
+
+
+# Test unstake with index 0 
+# It should release all the stakes

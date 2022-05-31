@@ -9,7 +9,7 @@ contract MockDAI is ERC20, Ownable {
     }
 
     function mint(address account, uint256 amount)
-        internal
+        public
         onlyOwner
         returns (bool)
     {

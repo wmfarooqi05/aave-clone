@@ -34,14 +34,11 @@ contract TokenFarm is ChainlinkClient, Ownable {
         uint256 timestamp
     );
 
-    // token > address
-    // mapping(address => mapping(address => uint256)) public tokenStakingAmount;
-    // mapping(address => uint256) public uniqueTokensStaked;
     mapping(address => address) public tokenPriceFeedMap;
     mapping(address => bool) public allowedTokens;
 
     // @TODO Add a mapping to give different reward based on token
-    uint256 internal rewardPerHour = 1000;
+    uint256 internal rewardPerHour = 1;
 
     modifier tokenIsAllowed(address token) {
         require(allowedTokens[token] == true, "Token currently isn't allowed");
@@ -90,10 +87,6 @@ contract TokenFarm is ChainlinkClient, Ownable {
         emit Staked(msg.sender, _amount, index, block.timestamp);
     }
 
-    function getMyToken(address token) public view returns (IERC20 mytoken) {
-        return IERC20(token);
-    }
-
     function unstake(address _token, uint256 index) public {
         // If index is 0, we will unstake all the coins
         Stakeholder storage stakeholder = stakeholders[
@@ -112,11 +105,12 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
     function _unstake(address _token, Stake storage stakeElement) internal {
         require(stakeElement.amount > 0, "Staking balance cannot be 0");
-        uint256 _claimable = stakeElement.amount + calculateStakeReward(
-            stakeElement.amount,
-            stakeElement.since,
-            stakeElement.token
-        );
+        uint256 _claimable = stakeElement.amount +
+            calculateStakeReward(
+                stakeElement.amount,
+                stakeElement.since,
+                stakeElement.token
+            );
         stakeElement.amount = 0; // To Prevent Reentrancy attack
         IERC20(_token).transfer(stakeElement.user, _claimable);
     }
@@ -129,11 +123,12 @@ contract TokenFarm is ChainlinkClient, Ownable {
         stake_addresses.pop();
     }
 
+    // A user can view his reward
     function calculateStakeReward(
         uint256 amount,
         uint256 since,
         address token
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         // @TODO add logic to give different reward depending upon token
         return (((block.timestamp - since) / 1 hours) * amount) / rewardPerHour;
     }
@@ -148,8 +143,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
         return userIndex;
     }
 
-    // @TODO: change spelling
-    function getStacker(uint256 index, uint256 stackIndex)
+    function getStaker(uint256 index, uint256 stackIndex)
         public
         view
         returns (
@@ -181,30 +175,6 @@ contract TokenFarm is ChainlinkClient, Ownable {
         tokenPriceFeedMap[token] = priceFeed;
     }
 
-    // function updateStakingBalance(
-    //     address _user,
-    //     address _token,
-    //     uint256 _amount
-    // ) internal {
-    //     stakingBalance[_token][_user] = stakingBalance[_token][_user] + _amount;
-    // }
-
-    // function updateUniqueTokensStaked(address user, address token) internal {
-    //     if (stakingBalance[token][user] <= 0) {
-    //         uniqueTokensStaked[user] = uniqueTokensStaked[user] + 1;
-    //     } else if (uniqueTokensStaked[user] == 1) {
-    //         stakers.push(user);
-    //     }
-    // }
-
-    // function getTotalTokensStaked() public view return (uint256 amount) {
-    //     uint256 count = 0;
-    //     for (uint256 i=0; i<array.length; i++) {
-    //         count =
-    //     }
-    //     return count;
-    // }
-
     function getTokenEthPrice(address token)
         public
         view
@@ -219,12 +189,28 @@ contract TokenFarm is ChainlinkClient, Ownable {
     }
 
     // @TODO make this owner and user visible
-    function getUserTotalValue(address user) public view returns (uint256 value) {
-        require(owner() == msg.sender || user == msg.sender, "Only User of owner can see this value");
+    // This user only calculate current amount
+    // Upgrade and make it calculate claimable amount
+    function getUserStakingEthAmountValue(address user)
+        public
+        view
+        returns (uint256 value)
+    {
+        require(msg.sender == this.owner() || user == msg.sender, "Only User or Owner can check balance");
         uint256 totalValue = 0;
-        Stake[] storage stakes = stakeholders[stakeholderAdressToIndexMap[user]].stake_addresses;
-        for (uint i; i < stakes.length; i++) {
-            totalValue += stakes[i].amount;
+        Stake[] storage stakes = stakeholders[stakeholderAdressToIndexMap[user]]
+            .stake_addresses;
+        for (uint256 i = 1; i < stakes.length; i++) {
+            (uint256 price, uint8 decimals) = getTokenEthPrice(stakes[i].token);
+            uint256 value = stakes[i].amount +
+                calculateStakeReward(
+                    stakes[i].amount,
+                    stakes[i].since,
+                    stakes[i].token
+                );
+            totalValue += (value * price) / (10**uint256(decimals));
         }
+
+        return totalValue;
     }
 }
