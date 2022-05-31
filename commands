@@ -1,0 +1,2 @@
+To add mainnet fork for testing
+brownie networks add development mainnet-fork cmd=ganache-cli host=127.0.0.1 fork=https://eth-mainnet.alchemyapi.io/v2/uyoJ0Rb1Je5lQyQ8KzgbpJuiGTqRIlbR accounts=10 mnemonic=brownie port=8545

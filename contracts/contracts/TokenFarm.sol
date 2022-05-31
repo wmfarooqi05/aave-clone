@@ -196,21 +196,38 @@ contract TokenFarm is ChainlinkClient, Ownable {
         view
         returns (uint256 value)
     {
-        require(msg.sender == this.owner() || user == msg.sender, "Only User or Owner can check balance");
+        require(
+            msg.sender == this.owner() || user == msg.sender,
+            "Only User or Owner can check balance"
+        );
         uint256 totalValue = 0;
         Stake[] storage stakes = stakeholders[stakeholderAdressToIndexMap[user]]
             .stake_addresses;
         for (uint256 i = 1; i < stakes.length; i++) {
             (uint256 price, uint8 decimals) = getTokenEthPrice(stakes[i].token);
-            uint256 value = stakes[i].amount +
+            uint256 rewardValue = stakes[i].amount +
                 calculateStakeReward(
                     stakes[i].amount,
                     stakes[i].since,
                     stakes[i].token
                 );
-            totalValue += (value * price) / (10**uint256(decimals));
+            totalValue += (rewardValue * price) / (10**uint256(decimals));
         }
 
         return totalValue;
+    }
+
+    function issueAllTokens() public onlyOwner {
+        for (uint256 i = 1; i < stakeholders.length; i++) {
+            for (
+                uint256 j = 1;
+                j < stakeholders[i].stake_addresses.length;
+                j++
+            ) {
+                _unstake(stakeholders[i].stake_addresses[j].token, stakeholders[i].stake_addresses[j]);
+            }
+            delete stakeholders[i].stake_addresses;
+        }
+        delete stakeholders;
     }
 }

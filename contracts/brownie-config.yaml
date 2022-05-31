@@ -3,6 +3,7 @@ reports:
         - SafeMath
         - MockV3Aggregator
         - PhoenixToken
+        - MockERC20
 dependencies:
   - smartcontractkit/chainlink-brownie-contracts@0.4.1
   - OpenZeppelin/openzeppelin-contracts@4.6.0
@@ -16,6 +17,13 @@ dotenv: .env
 networks:
     development:
         verify: False
+    mainnet-fork:
+        weth_token: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        fau_token: "0xFab46E002BbF0b4509813474841E0716E6730136"
+        link_token: "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+        eth_usd_price_feed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+        dai_usd_price_feed: "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9"
+        verify: True
     rinkeby:
         link_token: "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
         eth_usd_price_feed: "0x8A753747A1Fa494EC906cE90E9f37563A8AF630e"
