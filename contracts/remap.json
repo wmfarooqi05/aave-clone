@@ -1,0 +1,7 @@
+{
+    "remappings": [
+      "@openzeppelin/=/share/dependencies/OpenZeppelin/openzeppelin-contracts@4.3.2/",
+      "@chainlink=/share/dependencies/smartcontractkit/chainlink-brownie-contracts@0.2.2/"
+    ]
+  }
+  

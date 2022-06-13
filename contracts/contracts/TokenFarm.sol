@@ -87,47 +87,38 @@ contract TokenFarm is ChainlinkClient, Ownable {
         emit Staked(msg.sender, _amount, index, block.timestamp);
     }
 
-    function unstake(address _token, uint256 index) public {
-        // If index is 0, we will unstake all the coins
-        Stakeholder storage stakeholder = stakeholders[
-            stakeholderAdressToIndexMap[msg.sender]
-        ];
-        if (index != 0) {
-            _unstake(_token, stakeholder.stake_addresses[index]);
-            // @TODO It will still be called in case of failed unstake
-            removeStakeByIndex(stakeholder.stake_addresses, index);
-        }
-        // else {
-        //     // @TODO: for now return 0
-        //     // run a loop
-        // }
+    function unstake(address _token, uint256 stakeIndex) public {
+        require (stakeIndex > 0, "stakeIndex must be greater than 0");
+        _unstake(_token, stakeholderAdressToIndexMap[msg.sender], stakeIndex);
+        // @TODO It will still be called in case of failed unstake
+        removeStakeByIndex(stakeholderAdressToIndexMap[msg.sender], stakeIndex);
     }
 
-    function _unstake(address _token, Stake storage stakeElement) internal {
+    function _unstake(address _token, uint256 stakeholderIndex, uint256 stakeIndex) internal {
+        Stake storage stakeElement = stakeholders[stakeholderIndex].stake_addresses[stakeIndex];
         require(stakeElement.amount > 0, "Staking balance cannot be 0");
         uint256 _claimable = stakeElement.amount +
             calculateStakeReward(
                 stakeElement.amount,
-                stakeElement.since,
-                stakeElement.token
+                stakeElement.since
             );
-        stakeElement.amount = 0; // To Prevent Reentrancy attack
+        stakeholders[stakeholderIndex].stake_addresses[stakeIndex].amount = 0; // To Prevent Reentrancy attack
         IERC20(_token).transfer(stakeElement.user, _claimable);
     }
 
-    function removeStakeByIndex(Stake[] storage stake_addresses, uint256 index)
+    function removeStakeByIndex(uint256 stakeholderIndex, uint256 stakeIndex)
         internal
     {
-        delete stake_addresses[index];
-        stake_addresses[index] = stake_addresses[stake_addresses.length - 1];
-        stake_addresses.pop();
+        Stake[] storage stakeArray = stakeholders[stakeholderIndex].stake_addresses;
+        delete stakeArray[stakeIndex];
+        stakeArray[stakeIndex] = stakeArray[stakeArray.length - 1];
+        stakeArray.pop();
     }
 
     // A user can view his reward
     function calculateStakeReward(
         uint256 amount,
-        uint256 since,
-        address token
+        uint256 since
     ) public view returns (uint256) {
         // @TODO add logic to give different reward depending upon token
         return (((block.timestamp - since) / 1 hours) * amount) / rewardPerHour;
@@ -208,8 +199,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
             uint256 rewardValue = stakes[i].amount +
                 calculateStakeReward(
                     stakes[i].amount,
-                    stakes[i].since,
-                    stakes[i].token
+                    stakes[i].since
                 );
             totalValue += (rewardValue * price) / (10**uint256(decimals));
         }
@@ -224,7 +214,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
                 j < stakeholders[i].stake_addresses.length;
                 j++
             ) {
-                _unstake(stakeholders[i].stake_addresses[j].token, stakeholders[i].stake_addresses[j]);
+                _unstake(stakeholders[i].stake_addresses[j].token, i,j);
             }
             delete stakeholders[i].stake_addresses;
         }
