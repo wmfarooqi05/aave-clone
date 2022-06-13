@@ -9,3 +9,4 @@ contracts/build/
 contracts/reports/
 contracts/**/__pycache__
 contracts/dependencies
+contracts/**/flat_**
