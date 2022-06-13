@@ -10,3 +10,6 @@ contracts/reports/
 contracts/**/__pycache__
 contracts/dependencies
 contracts/**/flat_**
+
+client/node_modules
+client/.next%
