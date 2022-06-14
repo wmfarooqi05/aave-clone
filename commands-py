@@ -1,0 +1,31 @@
+from brownie import TokenFarm, PhoenixToken, accounts
+
+PhoenixToken
+
+token_farm_address = TokenFarm[25]
+
+account1 = accounts[0]
+account2 = accounts[1]
+
+PhoenixToken[28].approve(token_farm_address, 500, {'from': account2})
+
+PhoenixToken[28].mint(account2, 1000000000000, {'from': account1})
+
+TokenFarm[25].stake(token_address, 50, {"from":account2})
+
+PhoenixToken[28].balanceOf(account2)
+
+PhoenixToken[28].balanceOf(token_farm_address)
+
+TokenFarm[25].unstake(token_address, 1, {'from': account2})
+
+PhoenixToken[28].approve(token_farm_address, 500)
+
+TokenFarm[25].stakeholderAdressToIndexMap(account2)
+
+TokenFarm[25].stakeholders(1)
+
+listedTokens("0xE2a402f751B81Ff9529ec7844Dd7748bd2d41f4A")
+
+
+
