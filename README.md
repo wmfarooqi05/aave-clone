@@ -23,9 +23,10 @@ It is a simple Defi App.
 
 - [x] Add [Aave Interface](https://github.com/aave/interface)
 - [x] Add contracts for test Erc20 coins.
+- [x] Add contracts for staking coins.
+- [ ] Add UI to integrate with contract for staking coins.
 - [ ] Add contracts and UI for token swapping.
 - [ ] Add security scanners for contracts.
-- [ ] Add contracts and UI for staking.
 - [ ] Add contracts and UI for token borrowing.
 - [ ] Add contracts and UI for voting through governance tokens.
 
